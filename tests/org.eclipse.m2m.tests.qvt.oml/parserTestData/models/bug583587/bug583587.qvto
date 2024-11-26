@@ -1,0 +1,17 @@
+transformation bug583587;
+
+modeltype ecore uses "http://www.eclipse.org/emf/2002/Ecore";
+
+property pack = object EPackage {};
+
+property elem : Element = pack;
+property any : OclAny = pack;
+property void : OclVoid = null;
+property inv : OclInvalid = invalid;
+
+main() {
+	assert fatal (elem = pack);
+	assert fatal (any = pack);
+	assert fatal (void = null);
+	assert fatal (inv.oclIsInvalid());
+}

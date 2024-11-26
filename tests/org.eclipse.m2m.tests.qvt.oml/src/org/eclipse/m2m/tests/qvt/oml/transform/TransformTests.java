@@ -633,7 +633,8 @@ public class TransformTests extends TestCase {
 					public int getExpectedSeverity() {
         				return Diagnostic.WARNING;
         			};
-        		}
+        		},
+        		new FilesToFilesData("bug583587")
         	};
     }
 
