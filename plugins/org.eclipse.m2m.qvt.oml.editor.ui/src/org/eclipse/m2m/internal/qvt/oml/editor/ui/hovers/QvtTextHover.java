@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2018 Borland Software Corporation and others.
+ * Copyright (c) 2007, 2026 Borland Software Corporation and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -8,131 +8,122 @@
  * 
  * Contributors:
  *     Borland Software Corporation - initial API and implementation
+ *     Steffen Steudle - issue #1138
+ *     Christopher Gerking - issue #1138
  *******************************************************************************/
 package org.eclipse.m2m.internal.qvt.oml.editor.ui.hovers;
 
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IConfigurationElement;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.jface.text.IInformationControlCreator;
 import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextHover;
+import org.eclipse.jface.text.ITextHoverExtension;
 import org.eclipse.jface.text.ITextHoverExtension2;
 import org.eclipse.jface.text.ITextViewer;
-import org.eclipse.jface.text.Position;
-import org.eclipse.jface.text.Region;
-import org.eclipse.jface.text.source.Annotation;
-import org.eclipse.jface.text.source.IAnnotationModel;
-import org.eclipse.jface.text.source.ISourceViewer;
-import org.eclipse.m2m.internal.qvt.oml.compiler.CompiledUnit;
 import org.eclipse.m2m.internal.qvt.oml.editor.ui.Activator;
-import org.eclipse.m2m.internal.qvt.oml.editor.ui.CSTHelper;
 import org.eclipse.m2m.internal.qvt.oml.editor.ui.QvtDocumentProvider;
-import org.eclipse.ocl.cst.CSTNode;
 
 
-public class QvtTextHover implements ITextHover, ITextHoverExtension2 {
+public class QvtTextHover implements ITextHover, ITextHoverExtension, ITextHoverExtension2 {
 	
-    private final QvtDocumentProvider myDocumentProvider;
-    private final IElementInfoProvider[] myElementInfoProviders;	
+	private static final String EXTENSION_POINT_ID = "editorTextHovers"; //$NON-NLS-1$
+	private static final String ELEMENT_TEXT_HOVER = "textHover"; //$NON-NLS-1$
+	private static final String ATTRIBUTE_CLASS = "class"; //$NON-NLS-1$
 	
-    public QvtTextHover(final QvtDocumentProvider documentProvider) {
-        myDocumentProvider = documentProvider;
-        myElementInfoProviders = new IElementInfoProvider[] {
-        		new OperationCallInfoProvider(),
-        		new PropertyCallInfoProvider(),
-        		new VariableExpressionInfoProvider(),
-        		new PatternPropertyExpressionInfoProvider(),
-        		new PathNameInfoProvider(),
-        		new ModuleImportInfoProvider(),
-        		new ResolveInMappingInfoProvider(),
-        		new ModelTypeInfoProvider()
-        };
-    }
-
-    public IRegion getHoverRegion(final ITextViewer textViewer, final int offset) {
-        return new Region(offset, 0);
-    }
-        
-    public Object getHoverInfo2(final ITextViewer textViewer, final IRegion hoverRegion) {
-    	return getHoverInfo(textViewer, hoverRegion);
-    }
-    
-    public String getHoverInfo(final ITextViewer textViewer, final IRegion hoverRegion) {
-        if (checkCompiledUnit(myDocumentProvider.getCompiledModule()) && 
-        	textViewer != null && textViewer.getDocument() != null) {
-	        
-	        Annotation annotation = getAnnotation(textViewer, hoverRegion.getOffset());
-        	if (annotation != null) {
-        		return annotation.getText();
-        	}
-        	
-        	CSTNode rootCS = myDocumentProvider.getCompiledModule().getUnitCST();
-        	List<CSTNode> elements = CSTHelper.selectTargetedElements(rootCS, hoverRegion);
-        	if(!elements.isEmpty()) {
-        		try {
-        			return getElementsInfo(elements, textViewer, hoverRegion);
-				} catch (Exception e) {
-					Activator.log(e);
-				}
-        	}
-        }
-       
-        return ""; //$NON-NLS-1$
-    }
-    
-    public Annotation getAnnotation(final ITextViewer textViewer, final int offset) {
-    	if (textViewer instanceof ISourceViewer) {
- 			final IAnnotationModel annotationModel = ((ISourceViewer) textViewer).getAnnotationModel();
- 			if (annotationModel == null) {
- 				return null;
- 			}
- 			ArrayList<Annotation> annotations = new ArrayList<Annotation>();
- 			for (Iterator<?> iter = annotationModel.getAnnotationIterator(); iter.hasNext();) {
- 				Annotation annotation = (Annotation)iter.next();
- 				if (annotation.isPersistent() && !annotation.isMarkedDeleted()) {
-	 				Position position = annotationModel.getPosition(annotation);
-	 				if (position != null && position.includes(offset)) {
-	 					annotations.add(annotation);
-	 				}
- 				}
- 			}
- 			if (!annotations.isEmpty()) { 
-	 			Collections.sort(annotations, new Comparator<Annotation>() {
-					public int compare(final Annotation o1, final Annotation o2) {
-						Position p1 = annotationModel.getPosition(o1);
-						Position p2 = annotationModel.getPosition(o2);
-						return p1.getLength() - p2.getLength();
-					}
-	 			});
-	 			return (Annotation) annotations.get(0);
- 			}
- 		}
-    	return null;
-    }
-
-    
-    private String getElementsInfo(final List<CSTNode> elements, ITextViewer textViewer, IRegion hoverRegion) {
-    	for (CSTNode nextElement : elements) {
-        	for (int i = 0; i < myElementInfoProviders.length; i++) {
-    			IElementInfoProvider provider = myElementInfoProviders[i];
-    			try {
-    				String info = provider.getElementInfo(nextElement, textViewer, hoverRegion);
-    				if (info != null && info.length() > 0) {
-    					return info;
-    				}
-    			} catch (NullPointerException e) {
-    				// ignore
-    			}
-    		}    		
+	private final List<QvtBasicTextHover<?>> myChildTextHovers;
+	
+	private final QvtBasicTextHover<String> myDefaultTextHover;
+	private QvtBasicTextHover<?> myCurrentTextHover;
+	
+	public QvtTextHover(final QvtDocumentProvider documentProvider) {
+		myDefaultTextHover = new QvtDefaultTextHover(documentProvider);
+		myChildTextHovers = new ArrayList<QvtBasicTextHover<?>>(createTextHovers(documentProvider));
+		myChildTextHovers.add(myDefaultTextHover);
+	}
+	
+	@Override
+	public IRegion getHoverRegion(final ITextViewer textViewer, final int offset) {
+		return myDefaultTextHover.getHoverRegion(textViewer, offset);
+	}
+	
+	@Override
+	public Object getHoverInfo2(final ITextViewer textViewer, final IRegion hoverRegion) {
+		return retrieveInfoFromChildren(
+			new Informant<Object>() {
+				@Override
+				public <Info> Object inform(QvtBasicTextHover<Info> hover) {
+					return hover.getHoverInfo2(textViewer, hoverRegion);
+				};
+			}
+		);
+	}
+	
+	@Override
+	public String getHoverInfo(final ITextViewer textViewer, final IRegion hoverRegion) {
+		return retrieveInfoFromChildren(
+			new Informant<String>() {
+				@Override
+				public <Info> String inform(QvtBasicTextHover<Info> hover) {
+					return hover.getHoverInfo(textViewer, hoverRegion);
+				};
+			}
+		);
+	}
+	
+	private interface Informant<FinalForm> {
+		<OriginalForm> FinalForm inform(QvtBasicTextHover<OriginalForm> hover);
+	}
+	private <Info> Info retrieveInfoFromChildren(Informant<Info> informant) {
+		myCurrentTextHover = null;
+		
+		for (QvtBasicTextHover<?> childHover : myChildTextHovers) {
+			Info info = informant.inform(childHover);
+			if (info != null) {
+				myCurrentTextHover = childHover;
+				return info;
+			}
 		}
-    	return ""; //$NON-NLS-1$
-    }
-    
-    private boolean checkCompiledUnit(final CompiledUnit unit) {
-        return unit != null && unit.getUnitCST() != null;
-    }    
+		
+		return null;
+	}
+	
+	@Override
+	public IInformationControlCreator getHoverControlCreator() {
+		if (myCurrentTextHover == null) {
+			return null;
+		}
+		return myCurrentTextHover.getHoverControlCreator();
+	}
+	
+	private static List<QvtBasicTextHover<?>> createTextHovers(final QvtDocumentProvider documentProvider) {
+		List<QvtBasicTextHover<?>> results = new ArrayList<QvtBasicTextHover<?>>();
+		
+		IConfigurationElement[] configurationElements = 
+				Platform.getExtensionRegistry().getConfigurationElementsFor(Activator.PLUGIN_ID, EXTENSION_POINT_ID);
+		
+		for (IConfigurationElement element : configurationElements) {
+			if (!ELEMENT_TEXT_HOVER.equals(element.getName())) {
+				continue;
+			}
+			
+			try {
+				Object instance = element.createExecutableExtension(ATTRIBUTE_CLASS);
+				if (instance instanceof QvtBasicTextHover<?>) {
+					QvtBasicTextHover<?> hover = (QvtBasicTextHover<?>) instance;
+					hover.setDocumentProvider(documentProvider);
+					results.add(hover);
+				}
+			} catch (CoreException e) {
+				Activator.log(e.getStatus());
+			}
+		}
+		
+		return results;
+	}
 }
