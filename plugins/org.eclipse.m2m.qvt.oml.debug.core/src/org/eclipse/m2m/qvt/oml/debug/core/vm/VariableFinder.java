@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 R.Dvorak and others.
+ * Copyright (c) 2009, 2026 R.Dvorak and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     Radek Dvorak - initial API and implementation
+ *     Steffen Steudle - issue #1142
+ *     Christopher Gerking - issue #1142
  *******************************************************************************/
 package org.eclipse.m2m.qvt.oml.debug.core.vm;
 
@@ -361,9 +363,8 @@ public class VariableFinder {
 					elementVar = createCollectionElementVar(i, element,
 							elementType, createURI(childPath).toString());
 				} else {
-					Object key = element;
 					Object value = asDictionary.get(element);
-					elementVar = createDictionaryElementVar(key, value, elementType, createURI(childPath).toString());
+					elementVar = createDictionaryElementVar(element, value, elementType, createURI(childPath).toString());
 				}
 				result.add(elementVar);
 				i++;
@@ -400,7 +401,6 @@ public class VariableFinder {
 
 	private EStructuralFeature findFeature(String featureRef, EClass actualTarget) {
 		String actualRef = featureRef.startsWith("+") ? featureRef.substring(1) : featureRef;
-		boolean isIntermediate = featureRef.length() != actualRef.length();
 		
 		int classIndex;
 		String featureName;
@@ -421,17 +421,13 @@ public class VariableFinder {
 			return null;
 		}
 		
-		if(!isIntermediate) {
-			return featureOwner.getEStructuralFeature(featureName);
-		}
+		List<EStructuralFeature> features = fFeatureAccessor.getAllFeatures(featureOwner);
 		
-		EClass contextualPropMetaClass = ExpressionsPackage.eINSTANCE.getContextualProperty();
-		
-		for (EStructuralFeature feature : actualTarget.getEAllStructuralFeatures()) {					
-			if(feature.eClass() == contextualPropMetaClass && feature.equals(feature.getName())) {
+		for (EStructuralFeature feature : features) {				
+			if (featureName.equals(feature.getName())) {
 				return feature;
 			}
-		}
+		};
 		
 		return null;
 	}
@@ -489,8 +485,7 @@ public class VariableFinder {
 			String strVal = eClass.getName() + " @"
 					+ Integer.toHexString(System.identityHashCode(value));
 
-			boolean hasVariables = !eClass.getEAllStructuralFeatures()
-					.isEmpty() || value instanceof ModelInstance;
+			boolean hasVariables = hasVariables(eObject, variable, evalEnv);
 			vmValue = new Value(Value.OBJECT_REF, strVal, hasVariables);
 			vmType = new Value.Type(Value.Type.EOBJECT, eClass.getName(),
 					declaredTypeName);
@@ -525,6 +520,21 @@ public class VariableFinder {
 
 		variable.type = vmType;
 		variable.value = vmValue;
+	}
+	
+	private static boolean hasVariables(EObject eObject, VMVariable variable, QvtOperationalEvaluationEnv evalEnv) {
+		List<EStructuralFeature> variables = UnitLocationExecutionContext.getAllFeatures(eObject.eClass(), evalEnv);
+		
+		if (!variables.isEmpty()) {
+			return true;
+		}
+
+		if (eObject instanceof ModelInstance) {
+			ModelInstance modelInstance = (ModelInstance) eObject;
+			return !modelInstance.getExtent().getRootObjects().isEmpty();
+		}
+		
+		return false;
 	}
 	
 	private static Map<String, ModelInstance> getModelParameterVariables(QvtOperationalEvaluationEnv evalEnv) {

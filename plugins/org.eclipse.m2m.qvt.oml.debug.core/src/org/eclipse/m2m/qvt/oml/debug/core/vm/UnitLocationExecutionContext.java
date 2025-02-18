@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 R.Dvorak and others.
+ * Copyright (c) 2009, 2026 R.Dvorak and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -7,11 +7,12 @@
  *
  * Contributors:
  *     Radek Dvorak - initial API and implementation
+ *     Steffen Steudle - issue #1142
+ *     Christopher Gerking - issue #1142
  *******************************************************************************/
 package org.eclipse.m2m.qvt.oml.debug.core.vm;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import org.eclipse.emf.ecore.EClass;
@@ -27,7 +28,6 @@ import org.eclipse.m2m.internal.qvt.oml.ast.env.QvtOperationalEvaluationEnv;
 import org.eclipse.m2m.internal.qvt.oml.evaluator.ModuleInstance;
 import org.eclipse.m2m.internal.qvt.oml.evaluator.TransformationInstance;
 import org.eclipse.m2m.internal.qvt.oml.expressions.ContextualProperty;
-import org.eclipse.m2m.internal.qvt.oml.expressions.Module;
 import org.eclipse.m2m.internal.qvt.oml.expressions.OperationalTransformation;
 import org.eclipse.ocl.Environment;
 import org.eclipse.ocl.ecore.CallOperationAction;
@@ -62,20 +62,7 @@ public class UnitLocationExecutionContext implements VMFrameExecutionContext {
 	}
 	
 	public List<EStructuralFeature> getAllFeatures(EClass eClass) {
-		List<EStructuralFeature> features = new ArrayList<EStructuralFeature>();
-		features.addAll(eClass.getEAllStructuralFeatures());
-		
-		if(eClass instanceof Module) {
-			for (Iterator<EStructuralFeature> it = features.iterator(); it.hasNext();) {
-				EStructuralFeature feature = it.next();
-				if(feature instanceof ContextualProperty) {
-					it.remove();
-				}
-			}
-		}
-		
-		collectIntermediateProperties(features, eClass);
-		return features;
+		return getAllFeatures(eClass, fEvalEnv);
 	}
 
 	public QvtOperationalEvaluationEnv getEvalEnv() {
@@ -86,8 +73,7 @@ public class UnitLocationExecutionContext implements VMFrameExecutionContext {
 		return fEvalEnv.navigateProperty(feature, null, target);
 	}
 
-	private void collectIntermediateProperties(List<EStructuralFeature> properties, EClass targetClass) {
-		QvtOperationalEvaluationEnv evalEnv = fEvalEnv;		
+	private static void collectIntermediateProperties(List<EStructuralFeature> properties, EClass targetClass, QvtOperationalEvaluationEnv evalEnv) {
 		InternalEvaluationEnv internEvalEnv = evalEnv.getAdapter(InternalEvaluationEnv.class);
 		
 		ModuleInstance currentModule = internEvalEnv.getCurrentModule();
@@ -98,13 +84,13 @@ public class UnitLocationExecutionContext implements VMFrameExecutionContext {
 	}
 	
 	// TODO - build a cache for all target types to avoid repeated lookups
-	private void collectIntermediateProperties(List<EStructuralFeature> properties, EClass targetClass, TransformationInstance scopeModule) {
+	private static void collectIntermediateProperties(List<EStructuralFeature> properties, EClass targetClass, TransformationInstance scopeModule) {
 		OperationalTransformation operationalTransformation = scopeModule.getTransformation();
 		for (EStructuralFeature nextProperty : operationalTransformation.getIntermediateProperty()) {
 			if(nextProperty instanceof ContextualProperty) {
 				ContextualProperty ctxProperty = (ContextualProperty) nextProperty;
-				if(ctxProperty.getContext().isSuperTypeOf(targetClass)) {            
-		        	properties.add(ctxProperty);
+				if(ctxProperty.getContext().isSuperTypeOf(targetClass)) {
+					properties.add(ctxProperty);
 				}
 			}
 		}
@@ -116,4 +102,11 @@ public class UnitLocationExecutionContext implements VMFrameExecutionContext {
 			}
 		}
 	}	
+	
+	static List<EStructuralFeature> getAllFeatures(EClass eClass, QvtOperationalEvaluationEnv evalEnv) {
+		List<EStructuralFeature> features = new ArrayList<EStructuralFeature>(evalEnv.getUMLReflection().getAttributes(eClass));
+		
+		collectIntermediateProperties(features, eClass, evalEnv);
+		return features;
+	}
 }
