@@ -8,7 +8,7 @@
  *
  * Contributors:
  *     Borland Software Corporation - initial API and implementation
- *     Christopher Gerking - bugs 394188, 537041, #1135
+ *     Christopher Gerking - bugs 394188, 537041, issue #1135
  *******************************************************************************/
 package org.eclipse.m2m.tests.qvt.oml.compile;
 
