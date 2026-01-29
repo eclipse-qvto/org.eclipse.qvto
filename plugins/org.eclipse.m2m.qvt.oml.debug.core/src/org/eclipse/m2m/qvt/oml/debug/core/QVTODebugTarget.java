@@ -7,8 +7,8 @@
  *
  * Contributors:
  *     Radek Dvorak - initial API and implementation
- *     Steffen Steudle - issue #1139
- *     Christopher Gerking - issue #1139
+ *     Steffen Steudle - issues #1139, #1140
+ *     Christopher Gerking - issues #1139, #1140
  *******************************************************************************/
 package org.eclipse.m2m.qvt.oml.debug.core;
 
@@ -134,7 +134,13 @@ public class QVTODebugTarget extends QVTODebugElement implements IQVTODebugTarge
 		return sourceURI;
 	}
 	
+	private boolean isSkipAllBreakpoints() {
+		return !DebugPlugin.getDefault().getBreakpointManager().isEnabled();
+	}
+	
 	private void installVMBreakpoints() {
+		if (isSkipAllBreakpoints()) return;
+		
 		HashMap<Long, QVTOBreakpoint> installedBreakpoints = new HashMap<Long, QVTOBreakpoint>();
 		List<NewBreakpointData> allBpData = new ArrayList<NewBreakpointData>();
 		
@@ -313,7 +319,7 @@ public class QVTODebugTarget extends QVTODebugElement implements IQVTODebugTarge
 
 	public void breakpointAdded(IBreakpoint breakpoint) {
 		if (breakpoint instanceof QVTOBreakpoint == false
-				|| !DebugPlugin.getDefault().getBreakpointManager().isEnabled()) {
+				|| isSkipAllBreakpoints()) {
 			return;
 		}
 
@@ -338,7 +344,7 @@ public class QVTODebugTarget extends QVTODebugElement implements IQVTODebugTarge
 
 	public void breakpointChanged(IBreakpoint breakpoint, IMarkerDelta delta) {
 		if (breakpoint instanceof QVTOBreakpoint == false
-				|| !DebugPlugin.getDefault().getBreakpointManager().isEnabled()) {
+				|| isSkipAllBreakpoints()) {
 			return;
 		}
 
