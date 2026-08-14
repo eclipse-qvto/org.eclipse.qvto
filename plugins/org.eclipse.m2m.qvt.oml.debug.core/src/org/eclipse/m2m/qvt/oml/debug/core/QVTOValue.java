@@ -29,7 +29,6 @@ import org.eclipse.m2m.qvt.oml.debug.core.vm.protocol.VMVariableRequest;
 import org.eclipse.m2m.qvt.oml.debug.core.vm.protocol.VMVariableResponse;
 
 public class QVTOValue extends QVTODebugElement implements IValue {
-			
 	final VMVariable vmVar;
 	private Value vmValue;
 	private long frameID;
@@ -40,34 +39,38 @@ public class QVTOValue extends QVTODebugElement implements IValue {
 		this.vmValue = vmVar.value;
 		this.frameID = frameID;
 	}
-	
+
+	@Override
 	public boolean hasVariables() throws DebugException {
 		return vmValue != null && vmValue.hasVariables;
 	}
 
+	@Override
 	public IVariable[] getVariables() throws DebugException {
 		List<VMVariable> variables = requestVariables();
 		List<IVariable> result = new ArrayList<IVariable>();
-		
+
 		for (VMVariable nextVar : variables) {
 			result.add(new QVTOVariable(getQVTODebugTarget(), nextVar, this.frameID));
-		}					
-		
+		}
+
 		return result.toArray(new IVariable[result.size()]);
 	}
 
+	@Override
 	public String getValueString() throws DebugException {
 		return (vmValue != null) ? String.valueOf(vmValue.value) : AbstractQVTStdlib.NULL_NAME;
 	}
 
+	@Override
 	public String getReferenceTypeName() throws DebugException {
 		return this.vmVar.type.actualType;
-	}		
-	
+	}
+
     public String computeDetail() throws DebugException {
     	URI varURI = URI.createURI(getVariableURIForVMRequest());
     	VMDetailRequest request = new VMDetailRequest(varURI);
-    	
+
     	VMResponse response = getQVTODebugTarget().sendRequest(request);
     	if(response instanceof VMDetailResponse) {
     		VMDetailResponse detailResponse = (VMDetailResponse) response;
@@ -75,7 +78,7 @@ public class QVTOValue extends QVTODebugElement implements IValue {
     	}
     	return ""; //$NON-NLS-1$
     }
-	
+
     private String getVariableURIForVMRequest() {
 		String variableURI = vmVar.name;
 		if(!vmVar.isRootVariable()) {
@@ -83,13 +86,13 @@ public class QVTOValue extends QVTODebugElement implements IValue {
 		}
 		return variableURI;
     }
-    
+
 	List<VMVariable> requestVariables() throws DebugException {
 		String variableURI = getVariableURIForVMRequest();
-		
+
 		VMVariableRequest request = new VMVariableRequest(
 				frameID, variableURI, true);
-		
+
 		VMResponse response = getQVTODebugTarget().sendRequest(request);
 
 		if(response instanceof VMVariableResponse) {
@@ -98,12 +101,13 @@ public class QVTOValue extends QVTODebugElement implements IValue {
 				return Arrays.asList(variableResponse.childVariables);
 			}
 		}
-		
+
 		return Collections.emptyList();
 	}
-	
+
+	@Override
 	public boolean isAllocated() throws DebugException {
 		return true;
 	}
-	
+
 }
