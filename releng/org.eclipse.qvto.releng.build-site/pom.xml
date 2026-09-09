@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.eclipse.qvto</groupId>
     <artifactId>org.eclipse.qvto.releng-folder</artifactId>
-    <version>3.11.4-SNAPSHOT</version>
+    <version>3.11.5-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
   <groupId>org.eclipse.qvto</groupId>
   <artifactId>org.eclipse.qvto.releng.build-site</artifactId>
-  <version>3.11.4-SNAPSHOT</version>
+  <version>3.11.5-SNAPSHOT</version>
   <packaging>eclipse-repository</packaging>
   <properties>
     <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>

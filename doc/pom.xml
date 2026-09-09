@@ -4,12 +4,12 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.eclipse.qvto-doc</groupId>
   <artifactId>org.eclipse.qvto.doc-folder</artifactId>
-  <version>3.11.4-SNAPSHOT</version>
+  <version>3.11.5-SNAPSHOT</version>
   <packaging>pom</packaging>
   <parent>
     <groupId>org.eclipse.qvto</groupId>
     <artifactId>org.eclipse.qvto.releng.tycho</artifactId>
-    <version>3.11.4-SNAPSHOT</version>
+    <version>3.11.5-SNAPSHOT</version>
     <relativePath>../releng/org.eclipse.qvto.releng.tycho</relativePath>
   </parent>
   <modules>

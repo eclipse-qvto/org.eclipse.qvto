@@ -9,7 +9,7 @@
   <parent>
     <groupId>org.eclipse.qvto-tests</groupId>
     <artifactId>org.eclipse.qvto.tests-folder</artifactId>
-    <version>3.11.4-SNAPSHOT</version>
+    <version>3.11.5-SNAPSHOT</version>
   </parent>
   <build>
   <plugins>
